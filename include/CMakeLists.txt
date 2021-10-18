@@ -1,0 +1,1 @@
+#add_library(headers OBJECT hash.h)
