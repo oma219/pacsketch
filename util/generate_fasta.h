@@ -29,6 +29,7 @@ public:
         if (k <= 0 || k > 32) {FATAL_WARNING("The kmer length (-k) needs to be <=32");}
         if (num_seqs <= 0) {FATAL_WARNING("The number of sequences (-n) needs to be set as a positive number.");}
         if (seq_length <= 0) {FATAL_WARNING("The length of the sequence (-l) needs to be set as a positive number.");}
+        if (k > seq_length) {FATAL_WARNING("The length of the text is too small for the given kmer value.");}
     }
 };
 

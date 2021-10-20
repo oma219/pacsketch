@@ -13,7 +13,8 @@
 #include <iostream>
 #include <generate_fasta.h>
 #include <unistd.h>
-#include <stdlib.h> 
+#include <stdlib.h>
+#include <time.h>  
 #include <array>
 #include <set>
 
@@ -29,7 +30,7 @@ size_t compute_cardinality(size_t k, std::string curr_seq) {
 void produce_fasta(size_t k, size_t num_seqs, size_t seq_length) {
     /* Produces the FASTA file, and cardinality measurements to stdout */
     std::array<char, 4> alphabet = {'A', 'C', 'G', 'T'};
-    srand(0);
+    srand(time(NULL));
 
     for (size_t i = 0; i < num_seqs; i++) {
         std::fprintf(stdout, ">seq%ld\n", i);
@@ -47,7 +48,7 @@ void produce_fasta(size_t k, size_t num_seqs, size_t seq_length) {
         if (curr_str.length()) {std::fprintf(stdout, "%s\n", curr_str.data()); total_seq += curr_str;}
         
         size_t cardinality = compute_cardinality(k, total_seq);
-        std::fprintf(stderr, "Cardinality of seq%ld = %ld\n", i, cardinality);
+        std::fprintf(stderr, "CARDINALITY_seq%ld = %ld\n", i, cardinality);
     }
 }
 
