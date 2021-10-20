@@ -34,11 +34,10 @@ else ()
 	message(FATAL_ERROR "Only the compiler gcc and clang are supported")
 endif()
 
-# Add sub-directories to the build...
+# Add sub-directories to the build
 add_subdirectory(src)
-#include_directories(include)
-#add_subdirectory(include)
+add_subdirectory(util)
 
-install(TARGETS pacsketch DESTINATION ${PROJECT_BINARY_DIR})
-
+# Install target executables
+install(TARGETS minhash generate_fasta DESTINATION ${PROJECT_BINARY_DIR})
 

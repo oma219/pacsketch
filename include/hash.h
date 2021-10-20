@@ -13,5 +13,6 @@
 #include <stdint.h>
 
 uint64_t MurmurHash3(uint64_t key);
+uint64_t encode_string(const char* input_str);
 
 #endif /* end of _HASH_FUN_H */
