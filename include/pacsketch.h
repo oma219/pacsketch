@@ -10,8 +10,11 @@
 #ifndef  _PACSKETCH_H
 #define  _PACSKETCH_H
 
+#include <unistd.h>
+#include <fstream>
+
 /* Useful Macros */
-#define NOT_IMPL(x) do { std::fprintf(stderr, "%s is not implemented: %s\n", __func__, x); std::exit(1);} while (0)
+#define NOT_IMPL(x) do { std::fprintf(stderr, "%s() is not implemented: %s\n", __func__, x); std::exit(1);} while (0)
 #define FATAL_WARNING(x) do {std::fprintf(stderr, "Warning: %s\n", x); std::exit(1);} while (0)
 #define THROW_EXCEPTION(x) do { throw x;} while (0)
 #define LOG(...) do{std::fprintf(stderr, "[pacsketch] "); std::fprintf(stderr, __VA_ARGS__);\
@@ -22,6 +25,7 @@
 bool is_file(const char* file_path);
 
 enum sketch_type {MINHASH, HLL, NOT_CHOSEN};
+enum data_type {PACKET, FASTA};
 
 struct PacsketchBuildOptions {
     /* struct to build the command-line arguments */
@@ -32,7 +36,8 @@ struct PacsketchBuildOptions {
     bool use_minhash = false; // Records whether user uses -M 
     bool use_hll = false; // Records whether user uses -H
     bool print_cardinality = false; // output cardinality after building
-
+    bool input_fasta = false; // input data is a FASTA file (for development)
+    data_type input_data_type = PACKET; // input data are packets by default
 
     // MinHash specific values
     size_t k_size = 0; // number of hashes to keep
@@ -49,17 +54,10 @@ public:
         if (use_hll) {curr_sketch=HLL;}
 
         if (curr_sketch == MINHASH && k_size == 0) {FATAL_WARNING("Please specify the value of k since you requested to build a MinHash sketch.\n");}
+        if (input_fasta) {input_data_type=FASTA;}
     }
 
 };
-
-
-
-
-
-/* Function Declarations */
-bool is_file(const char* file_path);
-
 
 
 #endif /* end of _PACSKETCH_H header */

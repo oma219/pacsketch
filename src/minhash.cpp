@@ -18,7 +18,8 @@
 KSEQ_INIT(gzFile, gzread)
 
 template<typename T>
-void print_queue(T q) { // NB: pass by value so the print uses a copy
+void print_queue(T q) { 
+    // From c++ website for priority queues
     while(!q.empty()) {
         std::cout << q.top() << ' ';
         q.pop();
@@ -26,17 +27,15 @@ void print_queue(T q) { // NB: pass by value so the print uses a copy
     std::cout << '\n';
 }
 
-MinHash::MinHash(const char* file_path, size_t k_val, input_type file_type = FASTA) {
-    /* Constructs the MinHash data-structure for the scenario where input is a FASTA file */ 
-    gzFile fp = gzopen(file_path, "r"); 
+void MinHash::buildFromFASTA(std::string file_path, size_t k_val) {
+    /* Constructs the MinHash data-structure for the scenario where input is a FASTA file */
+    gzFile fp = gzopen(file_path.data(), "r"); 
     kseq_t* ks = kseq_init(fp);
 
     // Initialize the max-heap for the k-smallest hashes
     for (size_t i = 0; i < k_val; i++) {
-        max_heap_k.push(UINT64_MAX);
+        max_heap_k.push(MAX_HASH); // Could also use UINT64_MAX
     }
-    std::cout << max_heap_k.top() << std::endl;
-    print_queue(max_heap_k);
 
     while (kseq_read(ks) >= 0) {
         size_t kmer_length = 21;
@@ -54,20 +53,28 @@ MinHash::MinHash(const char* file_path, size_t k_val, input_type file_type = FAS
             }
         }
     }
-    print_queue(max_heap_k);
+} 
 
-    uint64_t cardinality = (UINT64_MAX/max_heap_k.top());
-    cardinality *= k_val;
-    std::cout << cardinality << std::endl;
+void MinHash::buildFromPackets(std::string file_path, size_t k_val) {
+    /* Builds the MinHash sketch from a Packet Trace */
+    NOT_IMPL("still working on this ...\n");
 }
 
-/*
-int main(int argc, char** argv) {
-    input_type file_type = FASTA;
+MinHash::MinHash(std::string file_path, size_t k_val, data_type file_type) {
+    /* constructor for MinHash class, it builds based on data_type*/
+    ref_file.assign(file_path);
+    k = k_val;
 
-    std::string input_file = "/Users/omarahmed/Downloads/test_fa/test.fa";
-
-    if (!is_file(input_file.data())) {THROW_EXCEPTION(std::runtime_error("The following path provided for MinHash skectch is not valid: " + input_file));}
-    MinHash(input_file.c_str(), 400, file_type);
+    switch(file_type) {
+        case FASTA: buildFromFASTA(file_path, k_val); break;
+        case PACKET: buildFromPackets(file_path, k_val); break;
+        default: FATAL_WARNING("There appears to be a bug in the code in MinHash constructor.\n"); std::exit(1);
+    }
 }
-*/
+
+uint64_t MinHash::get_cardinality() {
+    /* Computes the cardinality based the MinHash sketch */
+    uint64_t cardinality = (MAX_HASH/max_heap_k.top());
+    cardinality *= k;
+    return cardinality;
+}

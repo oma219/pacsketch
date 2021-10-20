@@ -32,6 +32,7 @@ int pacsketch_build_usage() {
     std::fprintf(stderr, "Options:\n");
     std::fprintf(stderr, "\t%-10sprints this usage message\n", "-h");
     std::fprintf(stderr, "\t%-10spath to input file that has index built for it\n", "-i [FILE]");
+    std::fprintf(stderr, "\t%-10sinput data is in FASTA format (used for dev)\n", "-f");
     std::fprintf(stderr, "\t%-10sbuild a MinHash sketch from input data\n", "-M");
     std::fprintf(stderr, "\t%-10sbuild a HyperLogLog sketch from input data\n", "-H");
     std::fprintf(stderr, "\t%-10soutput the cardinality of the sketch after building\n\n", "-c");
@@ -41,13 +42,13 @@ int pacsketch_build_usage() {
     return 1;
 }
 
-
 void parse_build_options(int argc, char** argv, PacsketchBuildOptions* opts) {
     /* Parses the command-line options for build sub-command */
-    for (int c; (c=getopt(argc, argv, "hi:MHck:")) >= 0;) {
+    for (int c; (c=getopt(argc, argv, "hi:fMHck:")) >= 0;) {
         switch (c) {
             case 'h': pacsketch_build_usage(); std::exit(1);
             case 'i': opts->input_file.assign(optarg); break;
+            case 'f': opts->input_fasta = true; break;
             case 'M': opts->use_minhash = true; break;
             case 'H': opts->use_hll = true; break;
             case 'c': opts->print_cardinality = true; break;
@@ -65,6 +66,14 @@ int build_main(int argc, char** argv) {
     PacsketchBuildOptions build_opts;
     parse_build_options(argc, argv, &build_opts);
     build_opts.validate();
+
+    // Build the sketch
+    if (build_opts.curr_sketch == MINHASH) {
+        MinHash data_sketch (build_opts.input_file, build_opts.k_size, build_opts.input_data_type);
+        if (build_opts.print_cardinality) {
+            std::fprintf(stdout, "Estimated Cardinality of Data: %lld\n\n", data_sketch.get_cardinality());
+        }
+    }
     return 1;
 }
 
@@ -73,7 +82,6 @@ int dist_main(int argc, char** argv) {
     NOT_IMPL("still working on this ...");
     return 1;
 }
-
 
 int pacsketch_usage() {
     /* Prints out the usage for pacsketch (if no sub-command, or incorrect sub-command is used) */
