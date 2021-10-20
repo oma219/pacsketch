@@ -61,7 +61,7 @@ MinHash::MinHash(const char* file_path, size_t k_val, input_type file_type = FAS
     std::cout << cardinality << std::endl;
 }
 
-
+/*
 int main(int argc, char** argv) {
     input_type file_type = FASTA;
 
@@ -70,3 +70,4 @@ int main(int argc, char** argv) {
     if (!is_file(input_file.data())) {THROW_EXCEPTION(std::runtime_error("The following path provided for MinHash skectch is not valid: " + input_file));}
     MinHash(input_file.c_str(), 400, file_type);
 }
+*/
