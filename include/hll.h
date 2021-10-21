@@ -60,7 +60,7 @@ private:
     char* registers; // pointers to dynamically allocated memory of registers
 
 public:
-    HyperLogLog(std::string input_path, uint8_t m, data_type file_type);
+    HyperLogLog(std::string input_path, uint8_t b, data_type file_type);
     ~HyperLogLog();
     uint64_t compute_cardinality();
 

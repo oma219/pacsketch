@@ -14,6 +14,7 @@
 #include <pacsketch.h>
 #include <hash.h>
 #include <minhash.h>
+#include <hll.h>
 
 bool is_file(const char* file_path) {
     /* Checks if the path is a valid file-path */
@@ -39,12 +40,15 @@ int pacsketch_build_usage() {
 
     std::fprintf(stderr, "MinHash specific options:\n");
     std::fprintf(stderr, "\t%-10snumber of hashes to keep in sketch\n\n", "-k [arg]");
+
+    std::fprintf(stderr, "HyperLogLog specific options:\n");
+    std::fprintf(stderr, "\t%-10snumber of bits to use for choosing registers\n\n", "-b [arg]");
     return 1;
 }
 
 void parse_build_options(int argc, char** argv, PacsketchBuildOptions* opts) {
     /* Parses the command-line options for build sub-command */
-    for (int c; (c=getopt(argc, argv, "hi:fMHck:")) >= 0;) {
+    for (int c; (c=getopt(argc, argv, "hi:fMHck:b:")) >= 0;) {
         switch (c) {
             case 'h': pacsketch_build_usage(); std::exit(1);
             case 'i': opts->input_file.assign(optarg); break;
@@ -53,6 +57,7 @@ void parse_build_options(int argc, char** argv, PacsketchBuildOptions* opts) {
             case 'H': opts->use_hll = true; break;
             case 'c': opts->print_cardinality = true; break;
             case 'k': opts->k_size = std::max(std::atoi(optarg), 0); break;
+            case 'b': opts->bit_prefix = std::max(std::atoi(optarg), 0); break;
             default: pacsketch_build_usage(); std::exit(1);
         }
     }
@@ -71,10 +76,13 @@ int build_main(int argc, char** argv) {
     if (build_opts.curr_sketch == MINHASH) {
         MinHash data_sketch (build_opts.input_file, build_opts.k_size, build_opts.input_data_type);
         if (build_opts.print_cardinality) {
-            std::fprintf(stdout, "Estimated Cardinality of Data: %lld\n\n", data_sketch.get_cardinality());
+            std::fprintf(stdout, "Estimated_Cardinality: %lld", data_sketch.get_cardinality());
         }
     } else if (build_opts.curr_sketch == HLL) {
-        NOT_IMPL("still working on this ...");
+        HyperLogLog data_sketch (build_opts.input_file, build_opts.bit_prefix, build_opts.input_data_type);
+        if (build_opts.print_cardinality) {
+            std::fprintf(stdout, "Estimated_Cardinality: %lld", data_sketch.compute_cardinality());
+        }
     }
     return 1;
 }

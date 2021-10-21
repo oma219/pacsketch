@@ -38,7 +38,7 @@ void MinHash::buildFromFASTA(std::string file_path, size_t k_val) {
     }
 
     while (kseq_read(ks) >= 0) {
-        size_t kmer_length = 21;
+        size_t kmer_length = 11;
         char curr_kmer[kmer_length + 1];
         for (size_t i = 0; i <= ks->seq.l-kmer_length; i++) {
             // Grab and encode kmer, and hash it
@@ -74,7 +74,11 @@ MinHash::MinHash(std::string file_path, size_t k_val, data_type file_type) {
 
 uint64_t MinHash::get_cardinality() {
     /* Computes the cardinality based the MinHash sketch */
-    uint64_t cardinality = (MAX_HASH/max_heap_k.top());
+    uint64_t k_min_hash = max_heap_k.top();
+    if (k_min_hash == 0) {k_min_hash = 1000000;} // Just to avoid an error
+
+    uint64_t cardinality = (MAX_HASH/k_min_hash);
+    std::cout << cardinality << std::endl;
     cardinality *= k;
     return cardinality;
 }

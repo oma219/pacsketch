@@ -42,6 +42,9 @@ struct PacsketchBuildOptions {
     // MinHash specific values
     size_t k_size = 0; // number of hashes to keep
 
+    // HLL specific values
+    uint8_t bit_prefix = 0;
+
 public:
     void validate() {    
         /* Validates and finalizes the command-line options */
@@ -53,8 +56,10 @@ public:
         if (use_minhash) {curr_sketch=MINHASH;}
         if (use_hll) {curr_sketch=HLL;}
 
-        if (curr_sketch == MINHASH && k_size == 0) {FATAL_WARNING("Please specify the value of k since you requested to build a MinHash sketch.\n");}
+        if (curr_sketch == MINHASH && k_size == 0) {FATAL_WARNING("Please specify a value of k since you requested to build a MinHash sketch.\n");}
+        if (curr_sketch == HLL && bit_prefix == 0) {FATAL_WARNING("Please specify a value for b since you requested to build a HLL.\n");}
         if (input_fasta) {input_data_type=FASTA;}
+
     }
 
 };
