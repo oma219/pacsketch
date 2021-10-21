@@ -78,7 +78,6 @@ uint64_t MinHash::get_cardinality() {
     if (k_min_hash == 0) {k_min_hash = 1000000;} // Just to avoid an error
 
     uint64_t cardinality = (MAX_HASH/k_min_hash);
-    std::cout << cardinality << std::endl;
     cardinality *= k;
     return cardinality;
 }
