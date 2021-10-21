@@ -83,8 +83,17 @@ join -j 1 -o 1.1,1.4,2.2,2.4  $true_card_file $est_card_file2 | awk '{printf("%s
 cat "${output_dir}temp_output_file1.csv" "${output_dir}temp_output_file2.csv" > "${output_dir}output_file.csv"
 rm "${output_dir}temp_output_file1.csv" "${output_dir}temp_output_file2.csv"
 
+
 # Add the error rate to data-file
 awk -F ',' 'BEGIN {error=0.0} {error=(($4-$2)/$2 * 100); printf("%s,%s,%s,%s,%f\n",$1,$2,$3,$4,error);}' "${output_dir}output_file.csv" > "${output_dir}final_output_file.csv"
 rm "${output_dir}output_file.csv" 
+
+# Calculates the average error rate for each data-structure
+rm "${output_dir}final_averages_file.csv"
+for data_struct in "minhash_k1" "minhash_k10"  "minhash_k100" "minhash_k400" "hll_b3" "hll_b6" "hll_b9" "hll_b12"
+do
+    awk -F ',' -v var="${data_struct}" 'BEGIN{num=0; total=0.0} {if ($3 == var) {total +=sqrt($5*$5); num+=1;}} END{printf("%s,%d,%f,%f\n",var,num,total,(total/num));}'  \
+                        "${output_dir}final_output_file.csv" >> "${output_dir}final_averages_file.csv" 
+done
 
 printf "[LOG] Finished analyzing the results.\n"
