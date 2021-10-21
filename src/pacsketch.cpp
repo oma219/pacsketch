@@ -1,7 +1,7 @@
 /*
  * Name: pacsketch.cpp
  * Description: Main file for pacsketch project.
- * Project: pacsketch project.
+ * Project: This file is part of pacsketch repo.
  * 
  * Author: Omar Ahmed
  * Date: October 17, 2021
@@ -73,6 +73,8 @@ int build_main(int argc, char** argv) {
         if (build_opts.print_cardinality) {
             std::fprintf(stdout, "Estimated Cardinality of Data: %lld\n\n", data_sketch.get_cardinality());
         }
+    } else if (build_opts.curr_sketch == HLL) {
+        NOT_IMPL("still working on this ...");
     }
     return 1;
 }

@@ -8,3 +8,7 @@ target_include_directories(pacsketch PUBLIC "../include")
 
 #add_executable(pacsketch hash.cpp)
 #target_include_directories(pacsketch PUBLIC "../include")
+
+add_executable(hll hll.cpp hash.cpp)
+target_link_libraries(hll ${CMAKE_SOURCE_DIR}/zlib/libz.a)
+target_include_directories(hll PUBLIC "../include")

@@ -1,11 +1,14 @@
 /*
  * Name: minhash.h
  * Description: Header file for minhash.cpp
- * Project: pacsketch project.
+ * Project: This file is part of pacsketch repo.
  * 
  * Author: Omar Ahmed
  * Date: October 17, 2021
  */
+
+#ifndef _MINHASH_H
+#define _MINHASH_H
 
 #include <queue>
 #include <vector>
@@ -14,8 +17,6 @@
 #include <pacsketch.h>
 
 #define MAX_HASH std::numeric_limits<uint64_t>::max()
-
-//enum input_type {FASTA};
 
 class MinHash {
 
@@ -28,7 +29,11 @@ private:
 public:
     MinHash(std::string file_path, size_t k_val, data_type file_type);
     uint64_t get_cardinality();
+
 private:
     void buildFromFASTA(std::string file_path, size_t k_val);
     void buildFromPackets(std::string file_path, size_t k_val);
-};
+
+}; // end of MinHash class
+
+#endif /* end of _MINHASH_H */

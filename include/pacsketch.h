@@ -1,7 +1,7 @@
 /*
  * Name: pacsketch.h
  * Description: Header file for pacsketch.cpp
- * Project: pacsketch project.
+ * Project: This file is part of pacsketch repo.
  * 
  * Author: Omar Ahmed
  * Date: October 17, 2021

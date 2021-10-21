@@ -1,7 +1,7 @@
 /*
  * Name: minhash.cpp
  * Description: Contains the implementation of the MinHash data-structure.
- * Project: pacsketch project.
+ * Project: This file is part of pacsketch repo.
  * 
  * Author: Omar Ahmed
  * Date: October 17, 2021
@@ -39,7 +39,7 @@ void MinHash::buildFromFASTA(std::string file_path, size_t k_val) {
 
     while (kseq_read(ks) >= 0) {
         size_t kmer_length = 21;
-        char curr_kmer[21];
+        char curr_kmer[kmer_length + 1];
         for (size_t i = 0; i <= ks->seq.l-kmer_length; i++) {
             // Grab and encode kmer, and hash it
             memcpy(curr_kmer, &ks->seq.s[i], kmer_length);

@@ -32,7 +32,7 @@ uint64_t encode_string(const char* input_str) {
   std::map<char, uint64_t> encode_dna = {{'A', 0x00}, {'C', 0x01},{'G', 0x02},{'T', 0x03}};
   uint64_t enc_str = 0x0000000000000000;
   size_t i = 0;
-  
+
   for (; i < strlen(input_str); i++) {
     enc_str = enc_str | (encode_dna[input_str[i]] << (2 * (strlen(input_str) - i - 1)));
   }
