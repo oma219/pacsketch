@@ -39,5 +39,5 @@ add_subdirectory(src)
 add_subdirectory(util)
 
 # Install target executables
-install(TARGETS pacsketch generate_fasta DESTINATION ${PROJECT_BINARY_DIR})
+install(TARGETS pacsketch generate_fasta generate_pair DESTINATION ${PROJECT_BINARY_DIR})
 

@@ -19,7 +19,7 @@ KSEQ_INIT(gzFile, gzread)
 
 template<typename T>
 void print_queue(T q) { 
-    // From c++ website for priority queues
+    // From C++ website for priority queues
     while(!q.empty()) {
         std::cout << q.top() << ' ';
         q.pop();
