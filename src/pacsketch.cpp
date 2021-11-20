@@ -46,6 +46,27 @@ int pacsketch_build_usage() {
     return 1;
 }
 
+int pacsketch_dist_usage() {
+    /* Prints out the usage information for pacsketch build sub-command */
+    std::fprintf(stderr, "\npacsketch dist - computes the jaccard between two sketches.\n");
+    std::fprintf(stderr, "Usage: pacsketch dist -i file1 -i file2 [options]\n\n");
+
+    std::fprintf(stderr, "Options:\n");
+    std::fprintf(stderr, "\t%-10sprints this usage message\n", "-h");
+    std::fprintf(stderr, "\t%-10spath to input file that has index built for it\n", "-i [FILE]");
+    std::fprintf(stderr, "\t%-10sinput data is in FASTA format (used for dev)\n", "-f");
+    std::fprintf(stderr, "\t%-10sbuild a MinHash sketch from input data\n", "-M");
+    std::fprintf(stderr, "\t%-10sbuild a HyperLogLog sketch from input data\n", "-H");
+
+    std::fprintf(stderr, "MinHash specific options:\n");
+    std::fprintf(stderr, "\t%-10snumber of hashes to keep in sketch\n\n", "-k [arg]");
+
+    std::fprintf(stderr, "HyperLogLog specific options:\n");
+    std::fprintf(stderr, "\t%-10snumber of bits to use for choosing registers\n\n", "-b [arg]");
+    return 1;
+}
+
+
 void parse_build_options(int argc, char** argv, PacsketchBuildOptions* opts) {
     /* Parses the command-line options for build sub-command */
     for (int c; (c=getopt(argc, argv, "hi:fMHck:b:")) >= 0;) {
@@ -58,7 +79,23 @@ void parse_build_options(int argc, char** argv, PacsketchBuildOptions* opts) {
             case 'c': opts->print_cardinality = true; break;
             case 'k': opts->k_size = std::max(std::atoi(optarg), 0); break;
             case 'b': opts->bit_prefix = std::max(std::atoi(optarg), 0); break;
-            default: pacsketch_build_usage(); std::exit(1);
+            default:  std::exit(1);
+        }
+    }
+}
+
+void parse_dist_options(int argc, char** argv, PacsketchDistOptions* opts) {
+    /* Parses the command-line options for dist sub-command */
+    for (int c; (c=getopt(argc, argv, "hi:fMHk:b:")) >= 0;) {
+        switch (c) {
+            case 'h': pacsketch_build_usage(); std::exit(1);
+            case 'i': opts->input_files.push_back(optarg); break;
+            case 'f': opts->input_fasta = true; break;
+            case 'M': opts->use_minhash = true; break;
+            case 'H': opts->use_hll = true; break;
+            case 'k': opts->k_size = std::max(std::atoi(optarg), 0); break;
+            case 'b': opts->bit_prefix = std::max(std::atoi(optarg), 0); break;
+            default:  std::exit(1);
         }
     }
 }
@@ -76,12 +113,12 @@ int build_main(int argc, char** argv) {
     if (build_opts.curr_sketch == MINHASH) {
         MinHash data_sketch (build_opts.input_file, build_opts.k_size, build_opts.input_data_type);
         if (build_opts.print_cardinality) {
-            std::fprintf(stdout, "Estimated_Cardinality: %lld", data_sketch.get_cardinality());
+            std::fprintf(stdout, "Estimated_Cardinality: %lld\n", data_sketch.get_cardinality());
         }
     } else if (build_opts.curr_sketch == HLL) {
         HyperLogLog data_sketch (build_opts.input_file, build_opts.bit_prefix, build_opts.input_data_type);
         if (build_opts.print_cardinality) {
-            std::fprintf(stdout, "Estimated_Cardinality: %lld", data_sketch.compute_cardinality());
+            std::fprintf(stdout, "Estimated_Cardinality: %lld\n", data_sketch.compute_cardinality());
         }
     }
     return 1;
@@ -89,7 +126,29 @@ int build_main(int argc, char** argv) {
 
 int dist_main(int argc, char** argv) {
     /* main method for dist sub-command */
-    NOT_IMPL("still working on this ...");
+    if (argc == 1) {return pacsketch_dist_usage();}
+
+    // Grab the dist options, and validate they are not missing/don't make sense 
+    PacsketchDistOptions dist_opts;
+    parse_dist_options(argc, argv, &dist_opts);
+    dist_opts.validate();
+
+    // Build the sketches for each input file
+    if (dist_opts.curr_sketch == MINHASH) {
+        MinHash data_sketch_1 (dist_opts.input_files[0], dist_opts.k_size, dist_opts.input_data_type);
+        MinHash data_sketch_2 (dist_opts.input_files[1], dist_opts.k_size, dist_opts.input_data_type);
+        std::fprintf(stdout, "Estimated_Cardinality (file_1): %lld\n", data_sketch_1.get_cardinality());
+        std::fprintf(stdout, "Estimated_Cardinality (file_2): %lld\n", data_sketch_2.get_cardinality());
+
+    } else if (dist_opts.curr_sketch == HLL) {
+        HyperLogLog data_sketch_1 (dist_opts.input_files[0], dist_opts.bit_prefix, dist_opts.input_data_type);
+        HyperLogLog data_sketch_2 (dist_opts.input_files[1], dist_opts.bit_prefix, dist_opts.input_data_type);
+        std::fprintf(stdout, "Estimated_Cardinality (file_1): %lld\n", data_sketch_1.compute_cardinality());
+        std::fprintf(stdout, "Estimated_Cardinality (file_2): %lld\n", data_sketch_2.compute_cardinality());
+
+    }
+
+    
     return 1;
 }
 
