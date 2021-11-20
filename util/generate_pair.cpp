@@ -14,10 +14,91 @@
 #include <iostream>
 #include <generate_pair.h>
 #include <unistd.h>
+#include <array>
+#include <filesystem>
+#include <fstream>
+#include <tuple>
+#include <set>
+#include <vector>
 
+/* Makes sure the output prefix has a valid parent path */
+bool is_valid_path(const char* output_prefix) {
+    std::__fs::filesystem::path out_prefix_path = output_prefix;
+    if (output_prefix[strlen(output_prefix)-1] == '/') {FATAL_WARNING("Need a output prefix, not a directory.");}
+    if (std::__fs::filesystem::exists(out_prefix_path.parent_path())) {return true;}
+    return false;
+}
+
+/* Computes the kmer cardinality of the DNA sequence */
+size_t compute_single_cardinality(size_t k, std::string curr_seq) {
+    std::set<std::string> kmer_set;
+    for (size_t pos = 0; pos <= curr_seq.length()-k; pos++) {
+        kmer_set.insert(curr_seq.substr(pos, k));
+    }
+    return kmer_set.size();
+}
+
+/* Takes in command-line arguments, and produces a pair of FASTA files */
 void produce_pair(size_t k, size_t seq_length, const char* output_file_prefix) {
-    /* Takes in command-line arguments, and produces a pair of FASTA files */
-    std::cout << "hello from produce_pair\n";
+    // Validate command-line path variable, and open first FASTA
+    if (!is_valid_path(output_file_prefix)) {FATAL_WARNING("output prefix given does not exist.");}
+
+    std::array<std::string, 3> file_exts = {"_1.fa", "_2.fa", "_stats.txt"};
+    std::array<std::string, 3> full_output_prefixes = {output_file_prefix + file_exts[0], 
+                                                       output_file_prefix + file_exts[1],
+                                                       output_file_prefix + file_exts[2]};
+    std::array<std::ofstream, 3> out_streams = {std::ofstream(full_output_prefixes[0], std::ofstream::out),
+                                                std::ofstream(full_output_prefixes[1], std::ofstream::out),
+                                                std::ofstream(full_output_prefixes[2], std::ofstream::out)};
+
+    // Initialize variables to be used for building FASTA files
+    std::array<char, 4> alphabet = {'A', 'C', 'G', 'T'};
+    srand(time(NULL));
+
+    size_t num_seqs = 2;
+    std::set<std::string> union_kmer_set;
+    std::vector<size_t> cardinalities;
+
+    // Creates each of FASTA files while computing cardinality of each individuallly
+    for (size_t i = 0; i < num_seqs; i++) {
+        out_streams[i] << ">seq" << i << std::endl;
+        std::string total_seq = "";
+        std::string curr_str = "";
+
+        for (size_t j = 0; j < seq_length; j++) {
+            if (j % FASTA_WIDTH == 0 && j) {
+                out_streams[i] << curr_str.data() << std::endl;
+                total_seq += curr_str;
+                curr_str = ""; 
+            }
+            curr_str += alphabet[GET_RANDOM_INDEX(4)];
+        }
+        if (curr_str.length()) {out_streams[i] << curr_str.data() << std::endl; total_seq += curr_str;}
+        
+        size_t cardinality = compute_single_cardinality(k, total_seq);
+        cardinalities.push_back(cardinality);
+
+        // Inserted current FASTA into union sketch
+        for (size_t pos = 0; pos <= total_seq.length()-k; pos++) {
+            union_kmer_set.insert(total_seq.substr(pos, k));
+        }
+    }
+    out_streams[0].close();
+    out_streams[1].close();
+
+    // Gather stats into stats output file
+    cardinalities.push_back(union_kmer_set.size());
+    auto jaccard = (cardinalities[0] + cardinalities[1] - cardinalities[2] + 0.0)/(cardinalities[2]);
+
+    out_streams[2] << std::right << std::setw(10) << "|SET(A)|" <<
+                      std::right << std::setw(10) << "|SET(B)|" <<
+                      std::right << std::setw(15) << "|SET(AUB)|"  <<
+                      std::right << std::setw(10) << "J(A,B)" << std::endl;
+    out_streams[2] << std::right << std::setw(10) << cardinalities[0] <<
+                      std::right << std::setw(10) << cardinalities[1] <<
+                      std::right << std::setw(15) << cardinalities[2] <<
+                      std::right << std::setw(10) << std::setprecision(4) << jaccard << std::endl;
+    out_streams[2].close();
 }
 
 void parse_generate_pair_run_options(int argc, char** argv, GeneratePairOptions* opts) {
@@ -28,7 +109,7 @@ void parse_generate_pair_run_options(int argc, char** argv, GeneratePairOptions*
             case 'k': opts->k = std::max(std::atoi(optarg), 0); break;
             case 'o': opts->output_file_prefix.assign(optarg); break;
             case 'l': opts->seq_length = std::max(std::atoi(optarg), 0); break;
-            default: generate_pair_usage(); std::exit(1);
+            default:  FATAL_WARNING("Use -h option to see valid command-line options");
         }
     }
 }
