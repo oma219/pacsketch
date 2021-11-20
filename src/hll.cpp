@@ -13,6 +13,7 @@
 #include <zlib.h>
 #include <hash.h>
 #include <pacsketch.h>
+#include <cmath>
 
 KSEQ_INIT(gzFile, gzread)
 
