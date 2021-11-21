@@ -24,6 +24,7 @@ private:
     std::string ref_file; // path to input data
     data_type file_type; // tells us how to parse input
     std::priority_queue<uint64_t, std::vector<uint64_t>> max_heap_k; // holds lowest k values, in max heap
+    std::vector<uint64_t> elements_in_queue; // Keeps track of values in max-heap in order to ensure there are no duplicates
     size_t k; // number of items kept
 
 public:

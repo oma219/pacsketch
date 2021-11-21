@@ -14,6 +14,7 @@
 #include <hash.h>
 #include <pacsketch.h>
 #include <set>
+#include <vector>
 
 
 KSEQ_INIT(gzFile, gzread)
@@ -37,6 +38,7 @@ void MinHash::buildFromFASTA(std::string file_path, size_t k_val) {
     for (size_t i = 0; i < k_val; i++) {
         max_heap_k.push(MAX_HASH); // Could also use UINT64_MAX
     }
+    elements_in_queue.push_back(MAX_HASH);
 
     while (kseq_read(ks) >= 0) {
         size_t kmer_length = 11;
@@ -47,10 +49,15 @@ void MinHash::buildFromFASTA(std::string file_path, size_t k_val) {
             uint64_t encoded_kmer = encode_string(curr_kmer);
             uint64_t curr_kmer_hash = MurmurHash3(encoded_kmer);
 
-            // Check if it is one of the min-hashes
-            if (curr_kmer_hash < max_heap_k.top()) {
+            // Check if it is one of the min-hashes, and it is unique
+            if (curr_kmer_hash < max_heap_k.top() && !std::count(elements_in_queue.begin(), elements_in_queue.end(), curr_kmer_hash)) {
+                auto removed_value = max_heap_k.top();
                 max_heap_k.pop();
                 max_heap_k.push(curr_kmer_hash);
+                
+                // Adds new value, and removes old value
+                elements_in_queue.push_back(curr_kmer_hash);
+                elements_in_queue.erase(std::remove(elements_in_queue.begin(), elements_in_queue.end(), removed_value), elements_in_queue.end());
             }
         }
     }
@@ -124,18 +131,24 @@ MinHash MinHash::operator +(MinHash& operand) {
 double MinHash::compute_jaccard(MinHash& op1, MinHash& op2) {
     /* Computes jaccard between two MinHash sketches */
     std::set<uint64_t> hash_set;
+    std::vector<uint64_t> op2_vec;
 
-    while (!op1.max_heap_k.empty()) { // Add operand1 hashes
-        hash_set.insert(op1.max_heap_k.top());
+    while (!op1.max_heap_k.empty()) { 
+        hash_set.insert(op1.max_heap_k.top()); // Add operand1 hashes to set
         op1.max_heap_k.pop();
-    }
 
-    size_t intersection_count = 0;
-    while (!op2.max_heap_k.empty()) { // Add operand2 hashes, and keep track of intersection
-        if (hash_set.find(op2.max_heap_k.top()) != hash_set.end()) {intersection_count++;}
-        hash_set.insert(op2.max_heap_k.top());
+        op2_vec.push_back(op2.max_heap_k.top()); // Add operand2 hashes to vector
         op2.max_heap_k.pop();
     }
+
+    // Find number of overlapping hashes
+    size_t intersection_count = 0;
+    for(auto itr = std::begin(op2_vec); itr != std::end(op2_vec); ++itr) {
+        if (hash_set.find(*itr) != hash_set.end()) {intersection_count++;}
+    }
+
+    // Add operand2 hashes to set
+    std::for_each(std::begin(op2_vec), std::end(op2_vec), [&](uint64_t& hash_value) {hash_set.insert(hash_value);});
 
     auto jaccard = (intersection_count + 0.0)/(hash_set.size());
     return jaccard;
