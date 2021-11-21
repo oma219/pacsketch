@@ -58,11 +58,14 @@ private:
     uint64_t num_registers = 0; // number of registers in HLL
     uint64_t total_bytes_allocated = 0; // actual bytes allocated for registers
     char* registers; // pointers to dynamically allocated memory of registers
+    data_type input_type; // input data used to create sketch
 
 public:
     HyperLogLog(std::string input_path, uint8_t b, data_type file_type);
+    HyperLogLog(uint8_t b, data_type file_type);
     ~HyperLogLog();
     uint64_t compute_cardinality();
+    HyperLogLog operator +(HyperLogLog& operand);
 
 private:
     void buildFromFASTA(std::string input_path, uint8_t m);

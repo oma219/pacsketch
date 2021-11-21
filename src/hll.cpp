@@ -24,6 +24,7 @@ HyperLogLog::HyperLogLog(std::string input_path, uint8_t b, data_type file_type)
     ref_file.assign(input_path);
     prefix_bits = b;
     num_registers = std::pow(2, prefix_bits);
+    input_type = file_type;
     
     total_bytes_allocated = TOTAL_REGISTER_SPACE(num_registers);
     registers = new char[TOTAL_REGISTER_SPACE(num_registers)];
@@ -35,6 +36,20 @@ HyperLogLog::HyperLogLog(std::string input_path, uint8_t b, data_type file_type)
         case PACKET: buildFromPackets(ref_file, prefix_bits); break;
         default: FATAL_WARNING("There appears to be a bug in the code in HLL constructor.\n"); std::exit(1);
     }
+}
+
+HyperLogLog::HyperLogLog(uint8_t b, data_type file_type) {
+    /* Constructor for HLL data-structure -> used when building union sketch */
+
+    // Initialize attributes
+    ref_file.assign("");
+    prefix_bits = b;
+    num_registers = std::pow(2, prefix_bits);
+    input_type = file_type;
+    
+    total_bytes_allocated = TOTAL_REGISTER_SPACE(num_registers);
+    registers = new char[TOTAL_REGISTER_SPACE(num_registers)];
+    initialize_registers();
 }
 
 HyperLogLog::~HyperLogLog() {
@@ -252,6 +267,22 @@ void HyperLogLog::buildFromPackets(std::string input_path, uint8_t m) {
     /* Builds the HLL from a Packet Data */
     NOT_IMPL("still working on this ...");
 }
+
+HyperLogLog HyperLogLog::operator +(HyperLogLog& operand) {
+    /* Creates the union HLL from two HLLs */
+    HyperLogLog union_sketch (this->prefix_bits, this->input_type);
+    
+    // Build actual sketch by iterating through registers and getting max
+    for (size_t i = 0; i < num_registers; i++) {
+        uint8_t val1 = this->grab_register(i);
+        uint8_t val2 = operand.grab_register(i);
+
+        uint8_t max = std::max(val1, val2);
+        union_sketch.set_register(i, max); // This is how to union-ize two HLL sketches
+    }
+    return union_sketch;
+}
+
 
 /*
 int main (int argc, char** argv) {

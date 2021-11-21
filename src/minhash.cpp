@@ -60,15 +60,28 @@ void MinHash::buildFromPackets(std::string file_path, size_t k_val) {
     NOT_IMPL("still working on this ...\n");
 }
 
-MinHash::MinHash(std::string file_path, size_t k_val, data_type file_type) {
+MinHash::MinHash(std::string file_path, size_t k_val, data_type input_type) {
     /* constructor for MinHash class, it builds based on data_type*/
     ref_file.assign(file_path);
     k = k_val;
+    file_type = input_type;
 
     switch(file_type) {
         case FASTA: buildFromFASTA(file_path, k_val); break;
         case PACKET: buildFromPackets(file_path, k_val); break;
         default: FATAL_WARNING("There appears to be a bug in the code in MinHash constructor.\n"); std::exit(1);
+    }
+}
+
+MinHash::MinHash(size_t k_val, data_type input_type) {
+    /* constructor for Minhash - used when unioning two MinHash sketch */
+    ref_file.assign("");
+    k = k_val;
+    file_type = input_type;
+
+    // Initialize the max-heap for the k-smallest hashes
+    for (size_t i = 0; i < k_val; i++) {
+        max_heap_k.push(MAX_HASH); // Could also use UINT64_MAX
     }
 }
 
@@ -80,4 +93,29 @@ uint64_t MinHash::get_cardinality() {
     uint64_t cardinality = (MAX_HASH/k_min_hash);
     cardinality *= k;
     return cardinality;
+}
+
+MinHash MinHash::operator +(MinHash& operand) {
+    /* Creates the union minhash from two minhashes */
+    MinHash union_sketch (this->k, this->file_type);
+
+    auto add_to_max_heap = [&] (uint64_t curr_kmer_hash) {
+        // Check if it is one of the min-hashes
+        if (curr_kmer_hash < union_sketch.max_heap_k.top()) {
+            union_sketch.max_heap_k.pop();
+            union_sketch.max_heap_k.push(curr_kmer_hash);
+        }
+    };
+
+    while (!this->max_heap_k.empty()) { // Add operand1 hashes
+        add_to_max_heap(this->max_heap_k.top());
+        this->max_heap_k.pop();
+    }
+
+    while (!operand.max_heap_k.empty()) { // Add operand2 hashes
+        add_to_max_heap(operand.max_heap_k.top());
+        operand.max_heap_k.pop();
+    }
+    uint64_t union_card = union_sketch.get_cardinality();
+    return union_sketch;
 }

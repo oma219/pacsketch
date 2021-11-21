@@ -28,7 +28,9 @@ private:
 
 public:
     MinHash(std::string file_path, size_t k_val, data_type file_type);
+    MinHash(size_t k_val, data_type file_type);
     uint64_t get_cardinality();
+    MinHash operator +(MinHash& operand);
 
 private:
     void buildFromFASTA(std::string file_path, size_t k_val);
