@@ -140,11 +140,7 @@ int dist_main(int argc, char** argv) {
 
         uint64_t card_a = data_sketch_1.get_cardinality();
         uint64_t card_b = data_sketch_2.get_cardinality();
-
-        // Generate union sketch, and estimate jaccard
-        MinHash union_sketch = data_sketch_1 + data_sketch_2;
-        uint64_t card_union = union_sketch.get_cardinality();
-        auto jaccard = (card_a + card_b - card_union + 0.0)/(card_union);
+        auto jaccard = MinHash::compute_jaccard(data_sketch_1, data_sketch_2);
 
         std::cout << "Estimated values based on MinHash sketches ...\n";
         std::cout << std::right << std::setw(10) << "|SET(A)|" <<
@@ -153,7 +149,7 @@ int dist_main(int argc, char** argv) {
                      std::right << std::setw(10) << "J(A,B)" << std::endl;
         std::cout << std::right << std::setw(10) << card_a <<
                      std::right << std::setw(10) << card_b <<
-                     std::right << std::setw(15) << card_union <<
+                     std::right << std::setw(15) << "N/A" <<
                      std::right << std::setw(10) << std::setprecision(4) << jaccard << std::endl;
 
     } else if (dist_opts.curr_sketch == HLL) {
@@ -162,11 +158,13 @@ int dist_main(int argc, char** argv) {
 
         uint64_t card_a = data_sketch_1.compute_cardinality();
         uint64_t card_b = data_sketch_2.compute_cardinality();
-                
+
         // Generate union sketch, and estimate jaccard
         HyperLogLog union_sketch = data_sketch_1 + data_sketch_2;
         uint64_t card_union = union_sketch.compute_cardinality();
-        auto jaccard = (card_a + card_b - card_union + 0.0)/(card_union);
+
+        auto jaccard = std::max(card_a + card_b - card_union + 0.0, 0.0)/(card_union);
+        if (card_union > (card_a + card_b)) {jaccard = 0.0;} // Check for overflow
 
         std::cout << "Estimated values based on HyperLogLog sketches ...\n";
         std::cout << std::right << std::setw(10) << "|SET(A)|" <<

@@ -31,6 +31,7 @@ public:
     MinHash(size_t k_val, data_type file_type);
     uint64_t get_cardinality();
     MinHash operator +(MinHash& operand);
+    static double compute_jaccard(MinHash& op1, MinHash& op2);
 
 private:
     void buildFromFASTA(std::string file_path, size_t k_val);

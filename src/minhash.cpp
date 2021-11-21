@@ -13,6 +13,7 @@
 #include <zlib.h>
 #include <hash.h>
 #include <pacsketch.h>
+#include <set>
 
 
 KSEQ_INIT(gzFile, gzread)
@@ -118,4 +119,24 @@ MinHash MinHash::operator +(MinHash& operand) {
     }
     uint64_t union_card = union_sketch.get_cardinality();
     return union_sketch;
+}
+
+double MinHash::compute_jaccard(MinHash& op1, MinHash& op2) {
+    /* Computes jaccard between two MinHash sketches */
+    std::set<uint64_t> hash_set;
+
+    while (!op1.max_heap_k.empty()) { // Add operand1 hashes
+        hash_set.insert(op1.max_heap_k.top());
+        op1.max_heap_k.pop();
+    }
+
+    size_t intersection_count = 0;
+    while (!op2.max_heap_k.empty()) { // Add operand2 hashes, and keep track of intersection
+        if (hash_set.find(op2.max_heap_k.top()) != hash_set.end()) {intersection_count++;}
+        hash_set.insert(op2.max_heap_k.top());
+        op2.max_heap_k.pop();
+    }
+
+    auto jaccard = (intersection_count + 0.0)/(hash_set.size());
+    return jaccard;
 }
