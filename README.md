@@ -33,8 +33,6 @@ This utility program generates a pair of FASTA files, as well as outputting the 
 ./generate_pair -k 31 -l 1000000 -o /Users/output_dir/prefix
 ```
 
-*** ***
-
 # Analysis Scripts
 
 ***Experiment 1:** Test the Cardinality and Jaccard Estimates of Each Data-Structure*
