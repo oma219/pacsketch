@@ -40,4 +40,6 @@ private:
 
 }; // end of MinHash class
 
+std::vector<std::string> split(std::string input, char delim);
+
 #endif /* end of _MINHASH_H */

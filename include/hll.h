@@ -77,5 +77,4 @@ private:
 
 }; // end of HLL class
 
-
 #endif /* end of _HLL_H */

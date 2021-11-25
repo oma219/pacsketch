@@ -15,6 +15,9 @@
 #include <pacsketch.h>
 #include <set>
 #include <vector>
+#include <string>
+#include <numeric>
+#include <functional>
 
 
 KSEQ_INIT(gzFile, gzread)
@@ -33,12 +36,6 @@ void MinHash::buildFromFASTA(std::string file_path, size_t k_val) {
     /* Constructs the MinHash data-structure for the scenario where input is a FASTA file */
     gzFile fp = gzopen(file_path.data(), "r"); 
     kseq_t* ks = kseq_init(fp);
-
-    // Initialize the max-heap for the k-smallest hashes
-    for (size_t i = 0; i < k_val; i++) {
-        max_heap_k.push(MAX_HASH); // Could also use UINT64_MAX
-    }
-    elements_in_queue.push_back(MAX_HASH);
 
     while (kseq_read(ks) >= 0) {
         size_t kmer_length = 11;
@@ -63,9 +60,44 @@ void MinHash::buildFromFASTA(std::string file_path, size_t k_val) {
     }
 } 
 
+std::vector<std::string> split(std::string input, char delim) {
+    /* Takes in a string, and splits it based on delimiters */
+    std::vector<std::string> word_list;
+    std::string curr_word = "";
+
+    for (char ch: input) {
+        if (ch == delim && curr_word.length()) {word_list.push_back(curr_word); curr_word = "";}
+        else if (ch != delim) {curr_word += ch;}
+    }
+    if (curr_word.length()) {word_list.push_back(curr_word);}
+    return word_list;
+}
+
 void MinHash::buildFromPackets(std::string file_path, size_t k_val) {
     /* Builds the MinHash sketch from a Packet Trace */
-    NOT_IMPL("still working on this ...\n");
+    std::ifstream input_data (file_path, std::ifstream::in);
+    std::hash<std::string> hasher;
+     
+    for (std::string line; std::getline(input_data, line);) {
+        auto word_list = split(line, ',');
+        word_list.pop_back(); // Removes the label
+
+        std::string feature_vec = "";
+        std::for_each(word_list.begin(), word_list.end(), [&](const std::string &word){feature_vec += word + "_";});
+        auto hash_val = hasher(feature_vec);
+
+        // Check if it is one of the min-hashes, and it is unique
+        if (hash_val < max_heap_k.top() && !std::count(elements_in_queue.begin(), elements_in_queue.end(), hash_val)) {
+            auto removed_value = max_heap_k.top();
+            max_heap_k.pop();
+            max_heap_k.push(hash_val);
+            
+            // Adds new value, and removes old value
+            elements_in_queue.push_back(hash_val);
+            elements_in_queue.erase(std::remove(elements_in_queue.begin(), elements_in_queue.end(), removed_value), elements_in_queue.end());
+        }
+    }
+
 }
 
 MinHash::MinHash(std::string file_path, size_t k_val, data_type input_type) {
@@ -73,6 +105,12 @@ MinHash::MinHash(std::string file_path, size_t k_val, data_type input_type) {
     ref_file.assign(file_path);
     k = k_val;
     file_type = input_type;
+
+    // Initialize the max-heap for the k-smallest hashes
+    for (size_t i = 0; i < k_val; i++) {
+        max_heap_k.push(MAX_HASH); // Could also use UINT64_MAX
+    }
+    elements_in_queue.push_back(MAX_HASH);
 
     switch(file_type) {
         case FASTA: buildFromFASTA(file_path, k_val); break;

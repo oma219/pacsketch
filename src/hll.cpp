@@ -13,7 +13,10 @@
 #include <zlib.h>
 #include <hash.h>
 #include <pacsketch.h>
+#include <minhash.h> 
 #include <cmath>
+#include <numeric>
+#include <functional>
 
 KSEQ_INIT(gzFile, gzread)
 
@@ -206,7 +209,6 @@ void HyperLogLog::buildFromFASTA(std::string input_path, uint8_t m) {
     gzFile fp = gzopen(input_path.data(), "r"); 
     kseq_t* ks = kseq_init(fp);
     
-    
     while (kseq_read(ks) >= 0) {
         size_t kmer_length = 11;
         char curr_kmer[kmer_length + 1];
@@ -265,7 +267,32 @@ uint64_t HyperLogLog::compute_cardinality() {
 
 void HyperLogLog::buildFromPackets(std::string input_path, uint8_t m) {
     /* Builds the HLL from a Packet Data */
-    NOT_IMPL("still working on this ...");
+    std::ifstream input_data (input_path, std::ifstream::in);
+    std::hash<std::string> hasher;
+     
+    for (std::string line; std::getline(input_data, line);) {
+        auto word_list = split(line, ',');
+        word_list.pop_back(); // Removes the label
+
+        std::string feature_vec = "";
+        std::for_each(word_list.begin(), word_list.end(), [&](const std::string &word){feature_vec += word + "_";});
+        auto hash_val = hasher(feature_vec);
+
+        // Parse the hash value to get register num, and lead zero count (lzc)
+        uint64_t mask = GRAB_REGISTER_MASK(prefix_bits);
+        uint64_t register_num = GRAB_REGISTER_NUM(mask, hash_val, prefix_bits);
+
+        uint64_t remaining_mask = ~mask;
+        uint64_t remaining_bits = GRAB_REMAINING_BITS(hash_val, remaining_mask, prefix_bits);
+        uint8_t  lzc = DETERMINE_LZC(remaining_bits);
+
+        // Update register number if the current LZC is larger than register
+        uint8_t register_value = grab_register(register_num);
+        if (lzc > register_value) {
+            clear_register(register_num);
+            set_register(register_num, lzc);
+        }
+    }
 }
 
 HyperLogLog HyperLogLog::operator +(HyperLogLog& operand) {
