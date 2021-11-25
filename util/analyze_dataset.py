@@ -37,11 +37,44 @@ def grab_numeric_kdd_features():
                     35, 36, 37, 38, 39, 40]
     return numeric_list
 
+def convert_real_to_discrete_label(value, mean, stdev):
+    """ 
+    Converts a real value to a discrete value.
+    
+    There are four possible labels: 1, 2, 3, and 4. They correspond
+    to distances from the mean of the feature. So 2 and 3 are within
+    one standard deviation up or below. While 1 and 4 are below or above
+    the standard deviation mark.
+    """
+    if stdev == 0:
+        return 0
+
+    z_score = (value-mean)/(stdev)
+    if z_score < -1.0:
+        return 1
+    elif z_score >= -1.0 and z_score < -0.5:
+        return 2
+    elif z_score >= -0.5 and z_score < -0.25:
+        return 3
+    elif z_score >= -0.25 and z_score < 0.0:
+        return 4
+    elif z_score >= 0.0 and z_score < 0.25:
+        return 5
+    elif z_score >= 0.25 and z_score < 0.5:
+        return 6
+    elif z_score >= 0.5 and z_score < 1.0:
+        return 7
+    else: 
+        return 8
+
 def analyze_kdd(input_file, output_prefix):
     """ Analyzes the KDDCup99 and NSL-KDD datasets """
     input_fd = open(input_file, "r")
     lines = input_fd.readlines()
     input_fd.close()
+
+    feature_names = grab_kdd_feature_list()
+    numeric_feature_indexes = grab_numeric_kdd_features()
 
     attack_records = []
     normal_records = []
@@ -69,9 +102,7 @@ def analyze_kdd(input_file, output_prefix):
     output_fd.close()
 
     # Phase 2: Compute the statistical parameters for each numerical feature
-    feature_names = grab_kdd_feature_list()
-    numeric_feature_indexes = grab_numeric_kdd_features()
-
+    numeric_params_list = []
     output_fd = open(output_prefix + "_feature_analysis.txt", "w")
     output_fd.write("{:30s}{:15s}{:15s}{:15s}{:20s}{:20s}\n".format("Feature Name:", "Record Type:", "Mean:", "Std Dev:", "Non-zero Mean:", "Non-zero Std Dev:"))
 
@@ -95,6 +126,7 @@ def analyze_kdd(input_file, output_prefix):
             mean_nz = 0
             stdev_nz = 0
         output_fd.write("{:30s}{:15s}{:<15.4f}{:<15.4f}{:<20.4f}{:<20.4f}\n".format(curr_name, "normal", mean, stdev, mean_nz, stdev_nz))
+        numeric_params_list.append([mean, stdev])
 
         # Next, analyze this features for attack records ...
         curr_distribution = []
@@ -115,11 +147,8 @@ def analyze_kdd(input_file, output_prefix):
         output_fd.write("{:30s}{:15s}{:<15.4f}{:<15.4f}{:<20.4f}{:<20.4f}\n".format(curr_name, "attack", mean, stdev, mean_nz, stdev_nz))
     output_fd.close()
 
-    # Phase 3: Re-writing csv file to replace labels with either 'normal' or 'attack'
-    feature_names = grab_kdd_feature_list()
-    numeric_feature_indexes = grab_numeric_kdd_features()
-
-    output_fd = open(output_prefix + "_alternate_dataset.csv", "w")
+    # Phase 3: Re-writing csv file to replace labels with either 'normal' or 'attack' (for plotting)
+    output_fd = open(output_prefix + "_dataset_for_plotting.csv", "w")
     output_fd.write("feature_name,value,label\n")
 
     for record in lines:
@@ -135,11 +164,72 @@ def analyze_kdd(input_file, output_prefix):
             output_fd.write(",".join([curr_feature, variables[curr_index], variables[41]]) + "\n")
     output_fd.close()
 
+    # Phase 4: Convert dataset to all discrete features using stdev values
+    output_fd = open(output_prefix + "_converted_dataset.csv", "w")
+    normal_fd = open(output_prefix + "_converted_normal_dataset.csv", "w")
+    attack_fd = open(output_prefix + "_converted_attack_dataset.csv", "w")
+
+    for record in lines:
+        variables = record.split(",")
+
+        # Go through each numeric feature and replace with discrete label ...
+        for i, curr_index in enumerate(numeric_feature_indexes):
+            curr_value = float(variables[curr_index])
+            curr_mean, curr_stdev = numeric_params_list[i]
+
+            corresponding_label = convert_real_to_discrete_label(curr_value, curr_mean, curr_stdev)
+            variables[curr_index] = str(corresponding_label)
+        output_fd.write(",".join(variables[:42]) + "\n")
+
+        if variables[41].strip() == "normal":
+            normal_fd.write(",".join(variables[:42]) + "\n")
+        else:
+            attack_fd.write(",".join(variables[:42]) + "\n")
     
+    output_fd.close()
+    normal_fd.close()
+    attack_fd.close()
 
+    # Phase 5: Analyze the new converted, records and compare across normal and attack records ...
+    input_dataset = open(output_prefix + "_converted_dataset.csv", "r")
+    converted_records = input_dataset.readlines()
+    input_dataset.close()
 
+    normal_converted_records = []
+    attack_converted_records = []
+    
+    # First, separate records into types ...
+    for record in converted_records:
+        variables = record.split(",")
+        record_type = variables[-1].strip()
 
+        if record_type == "normal":
+            normal_converted_records.append(record)
+        else:
+            attack_converted_records.append(record)
 
+    # Now, go through each feature and compare between normal/attack
+    output_fd = open(output_prefix + "_converted_dataset_feature_analysis.txt", "w")
+    output_fd.write("{:30s}{:15s}{:15s}{:15s}{:15s}{:15s}{:15s}{:15s}\n".format("Feature Name:", "Record Type:", "Label 1:", "Label 2:", "Label 3:", 
+                                                                                "Label 4:","Label 5:", "Label 6:", "Label 7:", "Label 8:" ))
+
+    for feature_index in numeric_feature_indexes:
+        curr_name = feature_names[feature_index]
+        label_counts = [0, 0, 0, 0, 0, 0, 0, 0]
+
+        for record in normal_converted_records:
+            curr_label = int(record.split(",")[feature_index])
+            label_counts[curr_label-1] += 1
+        output_fd.write("{:30s}{:15s}{:<15d}{:<15d}{:<15d}{:<15d}{:<15d}{:<15d}{:<15d}{:<15d}\n".format(curr_name, "normal", label_counts[0], label_counts[1], label_counts[2], 
+                                                                                                        label_counts[3], label_counts[4], label_counts[5], label_counts[6], label_counts[7]))
+
+        label_counts = [0, 0, 0, 0, 0, 0, 0, 0]
+        for record in attack_converted_records:
+            curr_label = int(record.split(",")[feature_index])
+            label_counts[curr_label-1] += 1
+        output_fd.write("{:30s}{:15s}{:<15d}{:<15d}{:<15d}{:<15d}{:<15d}{:<15d}{:<15d}{:<15d}\n".format(curr_name, "attack", label_counts[0], label_counts[1], label_counts[2], 
+                                                                                                        label_counts[3], label_counts[4], label_counts[5], label_counts[6], label_counts[7]))    
+    output_fd.close()
 
 
 def main(args):
