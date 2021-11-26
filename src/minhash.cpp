@@ -120,7 +120,7 @@ MinHash::MinHash(std::string file_path, size_t k_val, data_type input_type) {
 }
 
 MinHash::MinHash(size_t k_val, data_type input_type) {
-    /* constructor for Minhash - used when unioning two MinHash sketch */
+    /* Constructor for Minhash - used when unioning two MinHash sketch */
     ref_file.assign("");
     k = k_val;
     file_type = input_type;
@@ -129,7 +129,45 @@ MinHash::MinHash(size_t k_val, data_type input_type) {
     for (size_t i = 0; i < k_val; i++) {
         max_heap_k.push(MAX_HASH); // Could also use UINT64_MAX
     }
+    elements_in_queue.push_back(MAX_HASH);
 }
+
+MinHash::MinHash(std::vector<std::string> records, size_t k_val, data_type input_type = PACKET) {
+    /* Constructor for MinHash - used when simulating from network dataset */
+    ref_file.assign("");
+    k = k_val;
+    file_type = input_type;
+
+    // Initialize the max-heap for the k-smallest hashes
+    for (size_t i = 0; i < k_val; i++) {
+        max_heap_k.push(MAX_HASH); // Could also use UINT64_MAX
+    }
+    elements_in_queue.push_back(MAX_HASH);
+
+    // Go through each record, and insert it into the MinHash
+    std::hash<std::string> hasher;
+    for (std::string line: records) {
+        auto word_list = split(line, ',');
+        word_list.pop_back(); // Removes the label
+
+        std::string feature_vec = "";
+        std::for_each(word_list.begin(), word_list.end(), [&](const std::string &word){feature_vec += word + "_";});
+        auto hash_val = hasher(feature_vec);
+
+        // Check if it is one of the min-hashes, and it is unique
+        if (hash_val < max_heap_k.top() && !std::count(elements_in_queue.begin(), elements_in_queue.end(), hash_val)) {
+            auto removed_value = max_heap_k.top();
+            max_heap_k.pop();
+            max_heap_k.push(hash_val);
+            
+            // Adds new value, and removes old value
+            elements_in_queue.push_back(hash_val);
+            elements_in_queue.erase(std::remove(elements_in_queue.begin(), elements_in_queue.end(), removed_value), elements_in_queue.end());
+        }
+    }
+}
+
+
 
 uint64_t MinHash::get_cardinality() {
     /* Computes the cardinality based the MinHash sketch */
@@ -166,7 +204,7 @@ MinHash MinHash::operator +(MinHash& operand) {
     return union_sketch;
 }
 
-double MinHash::compute_jaccard(MinHash& op1, MinHash& op2) {
+double MinHash::compute_jaccard(MinHash op1, MinHash op2) {
     /* Computes jaccard between two MinHash sketches */
     std::set<uint64_t> hash_set;
     std::vector<uint64_t> op2_vec;

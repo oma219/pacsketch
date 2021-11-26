@@ -28,11 +28,12 @@ private:
     size_t k; // number of items kept
 
 public:
-    MinHash(std::string file_path, size_t k_val, data_type file_type);
-    MinHash(size_t k_val, data_type file_type);
+    MinHash(std::string file_path, size_t k_val, data_type file_type); // Main constructor
+    MinHash(size_t k_val, data_type file_type); // Used when creating union sketch
+    MinHash(std::vector<std::string> records, size_t k_val, data_type file_type); // Used when simulating from dataset
     uint64_t get_cardinality();
     MinHash operator +(MinHash& operand);
-    static double compute_jaccard(MinHash& op1, MinHash& op2);
+    static double compute_jaccard(MinHash op1, MinHash op2);
 
 private:
     void buildFromFASTA(std::string file_path, size_t k_val);
