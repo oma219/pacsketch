@@ -167,8 +167,6 @@ MinHash::MinHash(std::vector<std::string> records, size_t k_val, data_type input
     }
 }
 
-
-
 uint64_t MinHash::get_cardinality() {
     /* Computes the cardinality based the MinHash sketch */
     uint64_t k_min_hash = max_heap_k.top();
@@ -225,7 +223,6 @@ double MinHash::compute_jaccard(MinHash op1, MinHash op2) {
 
     // Add operand2 hashes to set
     std::for_each(std::begin(op2_vec), std::end(op2_vec), [&](uint64_t& hash_value) {hash_set.insert(hash_value);});
-
     auto jaccard = (intersection_count + 0.0)/(hash_set.size());
     return jaccard;
 }

@@ -111,6 +111,7 @@ struct PacsketchSimulateOptions {
     data_type input_data_type = PACKET; // input data are packets by default
     size_t num_windows = 0; // number of windows to simulate
     size_t num_records = 0; // number of records to include in each window
+    double attack_percent = -1.0; // percentage of records in simulated window that are attack records
 
     // MinHash specific values
     size_t k_size = 0; // number of hashes to keep
@@ -138,6 +139,8 @@ public:
 
         if (num_records > 50000 || num_records == 0) {FATAL_WARNING("The number of records per window (n) needs to be 0 < x < 50,000");}
         if (num_windows > 10000 || num_windows == 0) {FATAL_WARNING("The number of windows (w) needs to be 0 < w < 10,000");}
+        if (attack_percent < 0.0 || attack_percent > 1.0) {FATAL_WARNING("Make sure to set the attack ratio (-a). The attack percentage (a) needs to be a number between 0.0 <= a <= 1.0.");}
+        if (use_minhash && k_size > num_records) {FATAL_WARNING("The window size is too small, it must be larger than value of k for MinHash sketches.");}
     }
 };
 
@@ -154,5 +157,9 @@ int dist_main(int argc, char** argv);
 int simulate_main(int argc, char** argv); 
 char* cgets(char* buf, int max, char** data);
 std::vector<std::string> sample_records_at_indexes(std::vector<std::string> dataset_vecs, std::vector<size_t> index_list);
+std::vector<std::string> sample_mixed_records_at_indexes(std::vector<std::string> dataset_1_vecs, size_t num_dataset_1,
+                                                         std::vector<std::string> dataset_2_vecs, size_t num_dataset_2,
+                                                         std::vector<size_t> index_list);
+inline std::tuple<size_t, size_t> determine_window_breakdown(size_t total_num, double attack_ratio); 
 
 #endif /* end of _PACSKETCH_H header */
