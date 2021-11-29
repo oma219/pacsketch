@@ -67,11 +67,19 @@ def convert_real_to_discrete_label(value, mean, stdev):
     else: 
         return 8
 
-def analyze_kdd(input_file, output_prefix):
+def analyze_kdd(input_file, output_prefix, test_file):
     """ Analyzes the KDDCup99 and NSL-KDD datasets """
-    input_fd = open(input_file, "r")
-    lines = input_fd.readlines()
-    input_fd.close()
+    attack_records = []
+    normal_records = []
+    test_records = []
+
+    # Read in dataset from training and test set, if provided
+    with open(input_file, "r") as input_fd:
+        lines = input_fd.readlines()
+    
+    if test_file is not "":
+        with open(test_file, "r") as test_fd:
+            test_records = test_fd.readlines()
 
     feature_names = grab_kdd_feature_list()
     numeric_feature_indexes = grab_numeric_kdd_features()
@@ -166,8 +174,10 @@ def analyze_kdd(input_file, output_prefix):
 
     # Phase 4: Convert dataset to all discrete features using stdev values
     output_fd = open(output_prefix + "_converted_dataset.csv", "w")
+
     normal_fd = open(output_prefix + "_converted_normal_dataset.csv", "w")
     attack_fd = open(output_prefix + "_converted_attack_dataset.csv", "w")
+    test_fd = open(output_prefix + "_converted_test_dataset.csv", "w")
 
     for record in lines:
         variables = record.split(",")
@@ -185,10 +195,24 @@ def analyze_kdd(input_file, output_prefix):
             normal_fd.write(",".join(variables[:42]) + "\n")
         else:
             attack_fd.write(",".join(variables[:42]) + "\n")
-    
     output_fd.close()
     normal_fd.close()
     attack_fd.close()
+
+    # Write out converted test dataset if provided
+    if len(test_records) > 0:
+        with open(output_prefix + "_converted_test_dataset.csv", "w") as test_fd:
+            for record in test_records:
+                variables = record.split(",")
+
+                # Go through each numeric feature and replace with discrete label ...
+                for i, curr_index in enumerate(numeric_feature_indexes):
+                    curr_value = float(variables[curr_index])
+                    curr_mean, curr_stdev = numeric_params_list[i]
+
+                    corresponding_label = convert_real_to_discrete_label(curr_value, curr_mean, curr_stdev)
+                    variables[curr_index] = str(corresponding_label)
+                test_fd.write(",".join(variables[:42]) + "\n")
 
     # Phase 5: Analyze the new converted, records and compare across normal and attack records ...
     input_dataset = open(output_prefix + "_converted_dataset.csv", "r")
@@ -235,13 +259,14 @@ def analyze_kdd(input_file, output_prefix):
 def main(args):
     """ main method that executes the analysis of the requested dataset """
     if (args.kdd):
-        analyze_kdd(args.input_file, args.output_prefix)
+        analyze_kdd(args.input_file, args.output_prefix, args.test_file)
 
 def parse_arguments():
     """ Parse arguments from command-line and returns it """
     parser = argparse.ArgumentParser(description='Parses network datasets to be used for classification/plotting.')
     parser.add_argument("-i", dest="input_file", help="path to input dataset", required=True)
     parser.add_argument("--kdd", action="store_true", dest="kdd", help="indicates the input dataset is either the kdd99 or nsl-kdd dataset.", default=False)
+    parser.add_argument("-t", dest="test_file", help="path to test dataset to convert all the numerical features.", default="")
     parser.add_argument("-o", dest="output_prefix", help="output prefix for analysis files.", required=True)
     args=parser.parse_args()
     return args
@@ -257,6 +282,9 @@ def check_arguments(args):
         exit(1)
     if not os.path.isdir(os.path.dirname(args.output_prefix)):
         print("Error: The provided output-prefix path is not valid.")
+        exit(1)
+    if not os.path.exists(args.test_file):
+        print("Error: path to test file is not valid.")
         exit(1)
 
 if __name__ == "__main__":
