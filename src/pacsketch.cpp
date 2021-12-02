@@ -16,6 +16,7 @@
 #include <minhash.h>
 #include <hll.h>
 #include <unistd.h>
+#include <time.h>
 #include <fcntl.h>
 #include <sys/types.h>
 #include <sys/mman.h>
@@ -25,6 +26,7 @@
 #include <numeric>
 #include <random>
 #include <tuple>
+#include <array>
 
 bool is_file(const char* file_path) {
     /* Checks if the path is a valid file-path */
@@ -103,7 +105,8 @@ int pacsketch_simulate_usage() {
     std::fprintf(stderr, "\t%-10sbuild a HyperLogLog sketch from input data\n", "-H");
     std::fprintf(stderr, "\t%-10snumber of records to include in time window\n", "-n [arg]");
     std::fprintf(stderr, "\t%-10snumber of windows to simulate\n", "-w [arg]");
-    std::fprintf(stderr, "\t%-10sratio of simulated window that are attack records (0.0 <= x <= 1.0)\n\n", "-a [arg]");
+    std::fprintf(stderr, "\t%-10sratio of simulated window that are attack records (0.0 <= x <= 1.0)\n", "-a [arg]");
+    std::fprintf(stderr, "\t%-10spath to test dataset, if would like to simulate in test mode\n\n", "-t [arg]");
 
     std::fprintf(stderr, "MinHash specific options:\n");
     std::fprintf(stderr, "\t%-10snumber of hashes to keep in sketch\n\n", "-k [arg]");
@@ -148,7 +151,7 @@ void parse_dist_options(int argc, char** argv, PacsketchDistOptions* opts) {
 
 void parse_simulate_options(int argc, char** argv, PacsketchSimulateOptions* opts) {
     /* Parses the command-line options for simulate sub-command */
-    for (int c; (c=getopt(argc, argv, "hi:fMHk:b:n:w:a:")) >= 0;) {
+    for (int c; (c=getopt(argc, argv, "hi:fMHk:b:n:w:a:t:")) >= 0;) {
         switch (c) {
             case 'h': pacsketch_build_usage(); std::exit(1);
             case 'i': opts->input_files.push_back(optarg); break;
@@ -160,6 +163,7 @@ void parse_simulate_options(int argc, char** argv, PacsketchSimulateOptions* opt
             case 'n': opts->num_records = std::max(0, std::atoi(optarg)); break;
             case 'w': opts->num_windows = std::max(0, std::atoi(optarg)); break;
             case 'a': opts->attack_percent = std::atof(optarg); break;
+            case 't': opts->test_files.push_back(optarg); opts->test_mode = true; break;
             default:  std::exit(1);
         }
     }
@@ -284,6 +288,11 @@ int simulate_main(int argc, char** argv) {
     while(cgets(buf, sizeof(buf), &input_1_copy) != NULL) {input_1_records++; input_1_feature_vecs.push_back(std::string(buf));}
     while(cgets(buf, sizeof(buf), &input_2_copy) != NULL) {input_2_records++; input_2_feature_vecs.push_back(std::string(buf));}
 
+    // If in test mode, will call a certain function
+    // TO DO: when HLL is implemented, make that method templated ...
+    if (sim_opts.test_mode && sim_opts.use_minhash) {return simulate_test_main(input_1_feature_vecs, input_2_feature_vecs, sim_opts);}
+    if (sim_opts.test_mode && sim_opts.use_hll) {NOT_IMPL("still working on using HLL for simulation mode.");}
+
     // Build range, that will be shuffled to get random samples
     std::vector<size_t> input_1_range (input_1_records);
     std::vector<size_t> input_2_range (input_2_records);
@@ -352,11 +361,173 @@ int simulate_main(int argc, char** argv) {
     }
 
        
-    if (munmap(input_1_data, pagesize) < 0 || munmap(input_2_data, pagesize) < 0) {
+    if (munmap(input_1_data, s1.st_size) < 0 || munmap(input_2_data, s2.st_size) < 0) {
         perror("Error occurred while unmapping the input files");
         std::exit(1);
     }
     return 1;
+}
+
+int simulate_test_main(std::vector<std::string> normal_records, std::vector<std::string> attack_records, PacsketchSimulateOptions sim_opts) {
+    /* main method of simulate sub-command when test-mode is turned on */
+
+    // Open test files, and memory map them
+    struct stat s1, s2;
+    size_t test_normal_fd = open(sim_opts.test_files[0].data(), O_RDONLY);
+    size_t test_attack_fd = open(sim_opts.test_files[1].data(), O_RDONLY);
+
+    if (fstat(test_normal_fd, &s1) < 0) {THROW_EXCEPTION("Error occurred when getting test file stats.");}
+    if (fstat(test_attack_fd, &s2) < 0) {THROW_EXCEPTION("Error occurred when getting test file stats.");}
+    char* test_normal_data = static_cast<char*>(mmap((caddr_t)0, s1.st_size, PROT_READ, MAP_SHARED, test_normal_fd, 0));
+    char* test_attack_data = static_cast<char*>(mmap((caddr_t)0, s2.st_size, PROT_READ, MAP_SHARED, test_attack_fd, 0));
+
+    // Parse the both test files into feature vectors
+    char buf[128];
+    std::vector<std::string> test_normal_feature_vecs, test_attack_feature_vecs;
+
+    char* test_normal_copy = test_normal_data;
+    char* test_attack_copy = test_attack_data;
+    while(cgets(buf, sizeof(buf), &test_normal_copy) != NULL) {test_normal_feature_vecs.push_back(std::string(buf));}
+    while(cgets(buf, sizeof(buf), &test_attack_copy) != NULL) {test_attack_feature_vecs.push_back(std::string(buf));}
+
+    // Build a range of indexes that could be selected from test set
+    std::vector<size_t> test_normal_set_range (test_normal_feature_vecs.size());
+    std::vector<size_t> test_attack_set_range (test_attack_feature_vecs.size());
+    std::iota(test_normal_set_range.begin(), test_normal_set_range.end(), 0);
+    std::iota(test_attack_set_range.begin(), test_attack_set_range.end(), 0);
+
+    // Build the overall "normal" and "attack" sketches, based on training set
+    // IMPORTANT: when this function is templated, the "MinHash" will be "T"
+    MinHash normal_sketch (normal_records, sim_opts.k_size, sim_opts.input_data_type);
+    MinHash attack_sketch (attack_records, sim_opts.k_size, sim_opts.input_data_type);
+
+    // Set up the confusion matrix, to be able to compute classification metrics
+    std::array<size_t, 2> true_normal_row = {0, 0}; // TP, FN
+    std::array<size_t, 2> true_attack_row = {0, 0}; // FP, TN
+    auto increment_confusion = [&](double est_val, double true_val) {if (true_val >= 0.50) {
+                                                                        if (est_val < 0.50) {true_attack_row[0]++;}
+                                                                        else {true_attack_row[1]++;}
+                                                                      } else {
+                                                                        if (est_val < 0.50) {true_normal_row[0]++;}
+                                                                        else {true_normal_row[1]++;}
+                                                                      } 
+                                                                    };
+
+    // Simulate the requested number of windows
+    std::srand(time(NULL));
+    std::vector<size_t> test_set_subset;
+    std::fprintf(stdout, "approach,true_attack_ratio,jaccard_normal,jaccard_attack,est_attack_ratio\n");
+
+    for (size_t curr_window = 0; curr_window < sim_opts.num_windows; curr_window++) {
+
+        // Generate the random shuffles, and extract the random indexes
+        std::shuffle(test_normal_set_range.begin(), test_normal_set_range.end(), std::mt19937{std::random_device{}()});
+        std::shuffle(test_attack_set_range.begin(), test_attack_set_range.end(), std::mt19937{std::random_device{}()});
+
+        // Randomly decide what percentage of attack records do you want
+        double attack_ratio = ((double) std::rand())/RAND_MAX;
+        attack_ratio = std::round(attack_ratio * 1000.0)/1000.0;
+        double normal_ratio = 1 - attack_ratio;
+
+        size_t num_normal_records, num_attack_records;
+        std::tie(num_normal_records, num_attack_records) = determine_window_breakdown(sim_opts.num_records, attack_ratio);
+
+        // Generates the "test window" sketch, some normal and some attack records ...
+        std::for_each(test_normal_set_range.begin(), test_normal_set_range.begin()+num_normal_records, 
+                     [&](size_t val) {test_set_subset.push_back(val);});
+        std::for_each(test_attack_set_range.begin(), test_attack_set_range.begin()+num_attack_records, 
+                     [&](size_t val) {test_set_subset.push_back(val);});
+
+        auto test_mixed_records = sample_mixed_records_at_indexes(test_normal_feature_vecs, num_normal_records,
+                                                                  test_attack_feature_vecs, num_attack_records,
+                                                                  test_set_subset);
+
+        // Extracts the true ratios (rounding could have affected it)
+        double true_normal_percent, true_attack_percent;
+        std::tie(true_normal_percent, true_attack_percent) = analyze_record_labels_in_window(test_mixed_records);
+
+        if (sim_opts.curr_sketch == MINHASH) {
+            MinHash test_sketch (test_mixed_records, sim_opts.k_size, sim_opts.input_data_type);
+
+            auto jaccard_normal = MinHash::compute_jaccard(test_sketch, normal_sketch);
+            auto jaccard_attack = MinHash::compute_jaccard(test_sketch, attack_sketch);
+
+            double estimated_attack_jaccard = (jaccard_attack + 0.0)/(jaccard_attack + jaccard_normal);
+            double estimated_attack_sampler = estimate_attack_ratio_with_sampling(test_mixed_records);
+            increment_confusion(estimated_attack_jaccard, true_attack_percent);
+
+            std::fprintf(stdout, "%s,%6.4f,%6.4f,%6.4f,%6.4f\n",
+                                "pacsketch", true_attack_percent, jaccard_normal, 
+                                jaccard_attack, estimated_attack_jaccard);
+            std::fprintf(stdout, "%s,%6.4f,%6.4f,%6.4f,%6.4f\n",
+                                "sampling", true_attack_percent, jaccard_normal, 
+                                jaccard_attack, estimated_attack_sampler);
+
+        }
+        else if (sim_opts.curr_sketch == HLL) {
+            NOT_IMPL("still working on implementing this method for HLLs ...");
+        }
+        
+        test_set_subset.clear();
+    }
+    
+    // Print confusion matrix to stderr ...
+    std::fprintf(stderr, "Pacsketch Confusion Matrix on Test-Data ...\n");
+    std::fprintf(stderr, "\tTP = %d, FN = %d\n", true_normal_row[0], true_normal_row[1]);
+    std::fprintf(stderr, "\tFP = %d, TN = %d\n", true_attack_row[0], true_attack_row[1]);
+
+   if (munmap(test_normal_data, s1.st_size) < 0 || munmap(test_attack_data, s2.st_size) < 0) {
+        perror("Error occurred while unmapping the input files");
+        std::exit(1);
+    }
+    return 1;
+}
+
+double estimate_attack_ratio_with_sampling(std::vector<std::string> window_records) {
+    /* 
+     * Assuming the sampler is an Oracle, meaning that it can 100% accurately
+     * predict whether a certain connection record is anomalous or not. Then,
+     * what would be the percentage of this sample that is actually
+     * attack records.
+     */
+    size_t num_samples = (size_t) (window_records.size() * SAMPLING_RATE);
+    
+    std::vector<size_t> sample_range (window_records.size());
+    std::iota(sample_range.begin(), sample_range.end(), 0);
+    std::shuffle(sample_range.begin(), sample_range.end(), std::mt19937{std::random_device{}()});
+
+    std::vector<size_t> sample_subset;
+    std::for_each(sample_range.begin(), sample_range.begin()+num_samples, 
+                     [&](size_t val) {sample_subset.push_back(val);});
+    auto sample_records = sample_records_at_indexes(window_records, sample_subset);
+
+    double sample_normal_percent, sample_attack_percent;
+    std::tie(sample_normal_percent, sample_attack_percent) = analyze_record_labels_in_window(sample_records);
+    return sample_attack_percent;
+}
+
+std::tuple<double, double> analyze_record_labels_in_window(std::vector<std::string> window_records) {
+    /* 
+     * Returns the following tuple: <normal percent, attack percent> of the provided
+     * window of data records, the two values should add up to 1.
+     */
+    
+    size_t num_normal = 0;
+    for (auto record: window_records) {
+        // Grab label, trim whitespace, and check it
+        auto word_list = split(record, ',');
+        std::string label = word_list.back();
+        label.erase(std::remove_if(label.begin(), label.end(), isspace), label.end());
+
+        if (!label.compare("normal")) {num_normal++; }
+    }
+
+    double normal_ratio, attack_ratio;
+    normal_ratio = (num_normal+0.0)/window_records.size();
+
+    normal_ratio = std::round(normal_ratio * 1000.0)/1000.0;
+    attack_ratio = 1.0 - normal_ratio;
+    return std::make_tuple(normal_ratio, attack_ratio);
 }
 
 inline std::tuple<size_t, size_t> determine_window_breakdown(size_t total_num, double attack_ratio) {

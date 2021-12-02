@@ -21,6 +21,8 @@
 #define LOG(...) do{std::fprintf(stderr, "[pacsketch] "); std::fprintf(stderr, __VA_ARGS__);\
                     std::fprintf(stderr, "\n");} while(0)
 
+#define SAMPLING_RATE 0.0039 // Represents 1 in 256, based on a literature value
+
 enum sketch_type {MINHASH, HLL, NOT_CHOSEN};
 enum data_type {PACKET, FASTA};
 
@@ -112,6 +114,8 @@ struct PacsketchSimulateOptions {
     size_t num_windows = 0; // number of windows to simulate
     size_t num_records = 0; // number of records to include in each window
     double attack_percent = -1.0; // percentage of records in simulated window that are attack records
+    bool test_mode = false; // means the user wants to use a test data set
+    std::vector<std::string> test_files; // contains paths to test files <normal, attack>
 
     // MinHash specific values
     size_t k_size = 0; // number of hashes to keep
@@ -139,8 +143,15 @@ public:
 
         if (num_records > 50000 || num_records == 0) {FATAL_WARNING("The number of records per window (n) needs to be 0 < x < 50,000");}
         if (num_windows > 10000 || num_windows == 0) {FATAL_WARNING("The number of windows (w) needs to be 0 < w < 10,000");}
-        if (attack_percent < 0.0 || attack_percent > 1.0) {FATAL_WARNING("Make sure to set the attack ratio (-a). The attack percentage (a) needs to be a number between 0.0 <= a <= 1.0.");}
+
+        if ((attack_percent < 0.0 || attack_percent > 1.0) && !test_mode) {FATAL_WARNING("Make sure to set the attack ratio (-a). The attack percentage (a) needs to be a number between 0.0 <= a <= 1.0.");}
         if (use_minhash && k_size > num_records) {FATAL_WARNING("The window size is too small, it must be larger than value of k for MinHash sketches.");}
+        
+        if (test_mode && test_files.size() != 2) {FATAL_WARNING("To use test_mode, you have to provide exactly two file paths: normal, then attack.");}
+        if (test_mode && !is_file(test_files[0].data())) {FATAL_WARNING("The first provided test file is not a valid path.");}
+        if (test_mode && !is_file(test_files[1].data())) {FATAL_WARNING("The second provided test file is not a valid path.");}
+
+        if (test_mode && num_records > 9700) {FATAL_WARNING("For test mode, you must make sure window size is less than 9,700 records.");}
     }
 };
 
@@ -161,5 +172,8 @@ std::vector<std::string> sample_mixed_records_at_indexes(std::vector<std::string
                                                          std::vector<std::string> dataset_2_vecs, size_t num_dataset_2,
                                                          std::vector<size_t> index_list);
 inline std::tuple<size_t, size_t> determine_window_breakdown(size_t total_num, double attack_ratio); 
+int simulate_test_main(std::vector<std::string> normal_records, std::vector<std::string> attack_records, PacsketchSimulateOptions sim_opts);
+std::tuple<double, double> analyze_record_labels_in_window(std::vector<std::string> window_records);
+double estimate_attack_ratio_with_sampling(std::vector<std::string> window_records);
 
 #endif /* end of _PACSKETCH_H header */
