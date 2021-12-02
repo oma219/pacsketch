@@ -177,7 +177,6 @@ def analyze_kdd(input_file, output_prefix, test_file):
 
     normal_fd = open(output_prefix + "_converted_normal_dataset.csv", "w")
     attack_fd = open(output_prefix + "_converted_attack_dataset.csv", "w")
-    test_fd = open(output_prefix + "_converted_test_dataset.csv", "w")
 
     for record in lines:
         variables = record.split(",")
@@ -201,7 +200,9 @@ def analyze_kdd(input_file, output_prefix, test_file):
 
     # Write out converted test dataset if provided
     if len(test_records) > 0:
-        with open(output_prefix + "_converted_test_dataset.csv", "w") as test_fd:
+        file1_name = output_prefix + "_converted_test_normal_dataset.csv"
+        file2_name = output_prefix + "_converted_test_attack_dataset.csv"
+        with open(file1_name, "w") as test_normal_fd, open(file2_name, "w") as test_attack_fd:
             for record in test_records:
                 variables = record.split(",")
 
@@ -212,7 +213,11 @@ def analyze_kdd(input_file, output_prefix, test_file):
 
                     corresponding_label = convert_real_to_discrete_label(curr_value, curr_mean, curr_stdev)
                     variables[curr_index] = str(corresponding_label)
-                test_fd.write(",".join(variables[:42]) + "\n")
+
+                if variables[41].strip() == "normal":
+                    test_normal_fd.write(",".join(variables[:42]) + "\n")
+                else:
+                    test_attack_fd.write(",".join(variables[:42]) + "\n")
 
     # Phase 5: Analyze the new converted, records and compare across normal and attack records ...
     input_dataset = open(output_prefix + "_converted_dataset.csv", "r")
