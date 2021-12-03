@@ -72,6 +72,7 @@ def analyze_kdd(input_file, output_prefix, test_file):
     attack_records = []
     normal_records = []
     test_records = []
+    select_attack_records = [[],[],[]] # Stores Neptune, Smurf, IPsweep attacks
 
     # Read in dataset from training and test set, if provided
     with open(input_file, "r") as input_fd:
@@ -100,6 +101,14 @@ def analyze_kdd(input_file, output_prefix, test_file):
             label_dict[record_type] = 1
         else:
             label_dict[record_type] += 1
+
+        # Store specific attack records ...
+        if record_type == "neptune":
+            select_attack_records[0].append(line)
+        elif record_type == "smurf":
+            select_attack_records[1].append(line)
+        elif record_type == "ipsweep":
+            select_attack_records[2].append(line)
     
     # Writes out the number of items in each class to text file
     output_fd = open(output_prefix + "_class_types.txt", "w")
@@ -109,7 +118,8 @@ def analyze_kdd(input_file, output_prefix, test_file):
         output_fd.write("{:20}{:<30d}\n".format(key, label_dict[key]))
     output_fd.close()
 
-    # Phase 2: Compute the statistical parameters for each numerical feature
+    # Phase 2: Compute the statistical parameters for each numerical feature 
+    #          for normal vs attack records in training data
     numeric_params_list = []
     output_fd = open(output_prefix + "_feature_analysis.txt", "w")
     output_fd.write("{:30s}{:15s}{:15s}{:15s}{:20s}{:20s}\n".format("Feature Name:", "Record Type:", "Mean:", "Std Dev:", "Non-zero Mean:", "Non-zero Std Dev:"))
@@ -260,6 +270,53 @@ def analyze_kdd(input_file, output_prefix, test_file):
                                                                                                         label_counts[3], label_counts[4], label_counts[5], label_counts[6], label_counts[7]))    
     output_fd.close()
 
+    # Phase 6: Compute the statistical parameters for each numerical feature 
+    #          for neptune vs. smurf vs. ipsweep
+    numeric_params_list = []
+    output_fd = open(output_prefix + "_select_attacks_feature_analysis.txt", "w")
+    output_fd.write("{:30s}{:15s}{:15s}{:15s}{:20s}{:20s}\n".format("Feature Name:", "Record Type:", "Mean:", "Std Dev:", "Non-zero Mean:", "Non-zero Std Dev:"))
+
+    for feature_index in numeric_feature_indexes:
+        curr_name = feature_names[feature_index]
+        curr_distribution = []
+
+        # Goes through each select attack (neptune, smurf, ipsweep) ...
+        attack_names = ['neptune', 'smurf', 'ipsweep']
+        for i, certain_attack in enumerate(select_attack_records):
+            curr_distribution = []
+
+            for record in certain_attack:
+                variables = record.split(",")
+                curr_distribution.append(float(variables[feature_index]))
+            curr_distribution_non_zero = [x for x in curr_distribution if x > 0.0]
+
+            mean = sum(curr_distribution)/len(curr_distribution)
+            stdev = statistics.pstdev(curr_distribution)
+
+            if len(curr_distribution_non_zero) > 0:
+                mean_nz = sum(curr_distribution_non_zero)/len(curr_distribution_non_zero)
+                stdev_nz = statistics.pstdev(curr_distribution_non_zero)
+            else:
+                mean_nz = 0
+                stdev_nz = 0
+            output_fd.write("{:30s}{:15s}{:<15.4f}{:<15.4f}{:<20.4f}{:<20.4f}\n".format(curr_name, attack_names[i], mean, stdev, mean_nz, stdev_nz))
+    output_fd.close()
+
+    # Phase 7: Re-writing csv file to replace labels with either 'neptune', 'smurf', and 'ipsweep'
+    output_fd = open(output_prefix + "_select_attacks_dataset_for_plotting.csv", "w")
+    output_fd.write("feature_name,value,label\n")
+    attack_names = ['neptune', 'smurf', 'ipsweep']
+
+    for sub_list in select_attack_records:
+        for record in sub_list:
+            variables = record.split(",")
+            variables = variables[:42] # Removes last element
+
+            for curr_index in numeric_feature_indexes:
+                curr_feature = feature_names[curr_index]
+                output_fd.write(",".join([curr_feature, variables[curr_index], variables[41]]) + "\n")
+    output_fd.close()
+
 
 def main(args):
     """ main method that executes the analysis of the requested dataset """
@@ -288,7 +345,7 @@ def check_arguments(args):
     if not os.path.isdir(os.path.dirname(args.output_prefix)):
         print("Error: The provided output-prefix path is not valid.")
         exit(1)
-    if not os.path.exists(args.test_file):
+    if args.test_file is not "" and not os.path.exists(args.test_file):
         print("Error: path to test file is not valid.")
         exit(1)
 
