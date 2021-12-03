@@ -142,3 +142,15 @@ The commands to run this experiment are shown below. It uses the `simulate` sub-
 
 # Run test_simulation_analysis.R in exp/ folder to analyze results
 ```
+
+***Experiment 5:** Comparing Feature Distribution Across Different Attack Types in NSL-KDD*
+
+This experiment is aimed towards understanding if there is visual difference in the features of the security attacks in the NSL-KDD. The purpose of this experiment is to understand whether it would be possible to do multi-class classification of an anomaly, instead of just saying it is an anomaly without giving a specific type. In this experiment, I focused on three attack types (neptune, ipsweep, and smurf) since they are three of the most common attack types in the dataset.
+
+The command below extract the records for those three attacks, and then convert them into csv file that can be used by the following R script to analyze the feature distributions.
+
+```sh
+python3 analyze_dataset.py --kdd -i KDDTrain+.txt -o /path/to/output_dir/nsl_kdd
+
+# Run attack_feature_analysis.R in exp/ to analyze the results
+```
