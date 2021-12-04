@@ -2,7 +2,7 @@
 
 Pacsketch is a software tool that uses probabilistic sketch data-structures to determine if packet traces contain anomalous behavior. The data-structures that are available to be used are MinHash and HyperLogLog. The key idea of this approach is that if we build a sketch over the incoming network data (packet header/connection data) then we can compare it with existing sketches to see what traffic pattern it is most similar to in order to identify anomalous sets of data.
 
-This project was completed for my course project in EN.601.714 - Advanced Computer Networks.
+This project was completed for my course project in EN.601.714 - Advanced Computer Networks. The final paper as well as the presentations are saved in the `deliverables/` folder.
 
 # Build
 In order to build pacsketch, clone the repository and use cmake.
